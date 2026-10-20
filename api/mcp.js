@@ -1,12 +1,12 @@
-export const config = { api: { bodyParser: true }, runtime: "nodejs" };
-const routes = [["end-to-end","kdp-book-factory","Full approval-gated KDP workflow from intake through release packaging."],["series","ziretek-start-book-series","Create a connected book-series project and continuity structure."],["niche","kdp-niche-analyst","Research demand and competitors."],["outline","kdp-book-outliner","Create a commercially focused nonfiction outline."],["manuscript","ziretek-kdp-manuscript-core","Draft a complete manuscript."],["edit","ziretek-kdp-manuscript-editor","Copyedit and proofread."],["verify","ziretek-kdp-manuscript-verifier","Audit language and structure."],["format","kdp-formatting-cleaner","Create reflow-safe Markdown."],["activities","ziretek-kdp-activity-generator","Generate activities for ages 8–12."],["illustrations","ziretek-kdp-prompt-studio","Create illustration prompts."],["translation","ziretek-kdp-translation-engine","Localize a manuscript."],["design","kdp-design-briefer","Specify KDP design requirements."],["listing","kdp-listing-copywriter","Create listing copy and keywords."]];
-const ok = (id,result) => ({jsonrpc:"2.0",id,result});
-export default function handler(req,res) {
-  const b = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {}), id=b.id, p=b.params||{};
-  if (b.method === "notifications/initialized") return res.status(202).end();
-  if (b.method === "initialize") return res.status(200).json(ok(id,{protocolVersion:"2025-03-26",capabilities:{tools:{}},serverInfo:{name:"kdp-factory",version:"0.1.0"}}));
-  if (b.method === "tools/list") return res.status(200).json(ok(id,{tools:[{name:"kdp_route",description:"Route a KDP request to the correct workflow.",inputSchema:{type:"object",properties:{request:{type:"string"}},required:["request"]}},{name:"kdp_plan",description:"Create a concise KDP production plan.",inputSchema:{type:"object",properties:{topic:{type:"string"}},required:["topic"]}},{name:"kdp_factory_status",description:"Show KDP approval gates.",inputSchema:{type:"object",properties:{}}}]}));
-  if (b.method === "tools/call" && p.name === "kdp_route") { const request=String(p.arguments?.request||""), t=request.toLowerCase(), s=routes.find(([k])=>k!=="end-to-end"&&t.includes(k))||routes[0]; return res.status(200).json(ok(id,{content:[{type:"text",text:`Recommended workflow: ${s[1]} — ${s[2]}`}],structuredContent:{request,workflow:s[0],skill:s[1],approvalRequired:true}})); }
-  if (b.method === "tools/call" && p.name === "kdp_factory_status") return res.status(200).json(ok(id,{content:[{type:"text",text:"KDP Factory uses five approval gates; external publishing actions require separate authorization."}],structuredContent:{gates:5,externalActionsRequireExplicitAuthorization:true}}));
-  return res.status(200).json({jsonrpc:"2.0",id,error:{code:-32601,message:`Unsupported method: ${b.method}`}});
+export const config={runtime:"nodejs"};
+const tools=[{name:"kdp_route",description:"Route a KDP request.",inputSchema:{type:"object",properties:{request:{type:"string"}},required:["request"]}},{name:"kdp_factory_status",description:"Show KDP approval gates.",inputSchema:{type:"object",properties:{}}}];
+function send(res,status,obj){res.writeHead(status,{"content-type":"application/json"});res.end(JSON.stringify(obj));}
+export default function handler(req,res){
+ let body=req.body||{}; if(typeof body==="string") body=JSON.parse(body); const id=body.id, p=body.params||{};
+ if(body.method==="notifications/initialized") return send(res,202,{});
+ if(body.method==="initialize") return send(res,200,{jsonrpc:"2.0",id,result:{protocolVersion:"2025-03-26",capabilities:{tools:{}},serverInfo:{name:"kdp-factory",version:"0.1.0"}}});
+ if(body.method==="tools/list") return send(res,200,{jsonrpc:"2.0",id,result:{tools}});
+ if(body.method==="tools/call"&&p.name==="kdp_route"){const q=String(p.arguments?.request||"").toLowerCase();const s=q.includes("outline")?["outline","kdp-book-outliner","Create a commercially focused nonfiction or educational outline."]:["end-to-end","kdp-book-factory","Full approval-gated KDP workflow."];return send(res,200,{jsonrpc:"2.0",id,result:{content:[{type:"text",text:"Recommended workflow: "+s[1]+" — "+s[2]}],structuredContent:{workflow:s[0],skill:s[1],approvalRequired:true}}});}
+ if(body.method==="tools/call"&&p.name==="kdp_factory_status")return send(res,200,{jsonrpc:"2.0",id,result:{content:[{type:"text",text:"KDP Factory uses five approval gates; external publishing actions require separate authorization."}],structuredContent:{gates:5,externalActionsRequireExplicitAuthorization:true}}});
+ return send(res,200,{jsonrpc:"2.0",id,error:{code:-32601,message:"Unsupported method"}});
 }
